@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import { upload } from '@vercel/blob/client';
 import { scrubFile, type ScrubResult } from '@/lib/client-scrubber';
 
 interface EntryFormProps {
@@ -29,7 +30,8 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
   const [scrubResult, setScrubResult] = useState<ScrubResult | null>(null);
   const [scrubbing, setScrubbing] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [scrubError, setScrubError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '', caption: '', overlay: '', tags: '', notes: '',
   });
@@ -40,20 +42,21 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
     setScrubResult(null);
     setScrubbing(false);
     setUploading(false);
-    setScrubError(null);
+    setUploadProgress(0);
+    setError(null);
     setFormData({ title: '', caption: '', overlay: '', tags: '', notes: '' });
   };
 
   const processFile = async (f: File) => {
     setFile(f);
     setScrubResult(null);
-    setScrubError(null);
+    setError(null);
     setScrubbing(true);
     try {
       const result = await scrubFile(f);
       setScrubResult(result);
     } catch (err: any) {
-      setScrubError(err.message || 'Scrubbing failed');
+      setError(err.message || 'Scrubbing failed');
     } finally {
       setScrubbing(false);
     }
@@ -75,22 +78,40 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
     if (!file || !scrubResult) return;
 
     setUploading(true);
+    setError(null);
 
     try {
-      const fd = new FormData();
-      fd.append('file', scrubResult.blob, file.name);
-      fd.append('meta', JSON.stringify(formData));
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const pathname = `media/${Date.now()}-${safeName}`;
 
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
-      const data = await res.json();
+      // Upload DIRECTLY from browser to Vercel Blob CDN
+      // This bypasses the serverless function — no size limit
+      const blob = await upload(pathname, scrubResult.blob, {
+        access: 'public',
+        handleUploadUrl: '/api/upload',
+        clientPayload: JSON.stringify(formData),
+      });
 
-      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      // The onUploadCompleted callback on the server saves the entry to the index.
+      // But it's async and may not be done yet. So we also refetch after a short delay.
+      // For instant UI, we add optimistically:
+      const entry = {
+        id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+        ...formData,
+        mediaType: scrubResult.mediaType,
+        mediaUrl: blob.url,
+        mediaBlobPath: blob.pathname,
+        fileName: file.name,
+        fileSize: scrubResult.cleanSize,
+        isCleaned: true,
+        createdAt: new Date().toISOString(),
+      };
 
-      onSuccess(data.entry);
+      onSuccess(entry);
       setIsOpen(false);
       reset();
     } catch (err: any) {
-      setScrubError(err.message || 'Upload failed');
+      setError(err.message || 'Upload failed');
       setUploading(false);
     }
   };
@@ -117,8 +138,8 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
           <form onSubmit={handleSubmit}>
             <div className="form-row">
               <div
-                className={`upload-zone ${scrubResult ? 'has-file' : ''} ${scrubError ? 'has-error' : ''}`}
-                onClick={() => fileInputRef.current?.click()}
+                className={`upload-zone ${scrubResult ? 'has-file' : ''} ${error ? 'has-error' : ''}`}
+                onClick={() => !uploading && fileInputRef.current?.click()}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
               >
@@ -129,9 +150,15 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
                     <p style={{ color: 'var(--accent)' }}>Scrubbing metadata...</p>
                     <div className="upload-filename">Removing EXIF, GPS, device identifiers</div>
                   </>
-                ) : scrubError ? (
+                ) : uploading ? (
                   <>
-                    <p style={{ color: 'var(--red)' }}>{scrubError}</p>
+                    <LoaderIcon />
+                    <p style={{ color: 'var(--accent)' }}>Uploading to cloud...</p>
+                    <div className="upload-filename">Direct browser-to-CDN transfer</div>
+                  </>
+                ) : error ? (
+                  <>
+                    <p style={{ color: 'var(--red)' }}>{error}</p>
                     <div className="upload-filename">Click to try again</div>
                   </>
                 ) : scrubResult ? (
@@ -152,7 +179,7 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
                   <>
                     <div className="upload-icon"><UploadIcon /></div>
                     <p>Drop file or click to upload</p>
-                    <div className="upload-filename" style={{ fontSize: '0.7rem' }}>Files are automatically scrubbed before saving</div>
+                    <div className="upload-filename" style={{ fontSize: '0.7rem' }}>Files up to 500MB · metadata auto-scrubbed</div>
                   </>
                 )}
               </div>

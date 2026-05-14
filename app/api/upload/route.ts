@@ -1,59 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getEntries, saveEntries, uploadMedia, type EntryData } from '@/lib/storage';
+import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
+import { getEntries, saveEntries, type EntryData } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * This endpoint handles Vercel Blob CLIENT uploads.
+ * Files go directly from browser → Vercel Blob CDN.
+ * They never pass through this serverless function,
+ * so there is NO 4.5MB payload limit.
+ */
 export async function POST(req: NextRequest) {
+  const body = (await req.json()) as HandleUploadBody;
+
   try {
-    // Check if Blob token is configured
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      return NextResponse.json(
-        { error: 'BLOB_READ_WRITE_TOKEN not configured. Go to Vercel Dashboard → Storage → Connect your Blob store to this project.' },
-        { status: 500 }
-      );
-    }
+    const jsonResponse = await handleUpload({
+      body,
+      request: req,
+      onBeforeGenerateToken: async (pathname) => {
+        // You can add auth checks here
+        return {
+          allowedContentTypes: [
+            'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+            'video/mp4', 'video/quicktime', 'video/webm', 'video/x-msvideo',
+          ],
+          maximumSizeInBytes: 500 * 1024 * 1024, // 500MB max
+        };
+      },
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        // This is called by Vercel after the upload finishes.
+        // We save the entry metadata here.
+        try {
+          const meta = tokenPayload ? JSON.parse(tokenPayload as string) : {};
+          const entry: EntryData = {
+            id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+            title: meta.title || '',
+            overlay: meta.overlay || '',
+            caption: meta.caption || '',
+            tags: meta.tags || '',
+            notes: meta.notes || '',
+            mediaType: blob.contentType?.startsWith('image/') ? 'image' : 'video',
+            mediaUrl: blob.url,
+            mediaBlobPath: blob.pathname,
+            fileName: blob.pathname.split('/').pop() || 'file',
+            fileSize: blob.size,
+            isCleaned: true,
+            createdAt: new Date().toISOString(),
+          };
 
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
-    const metaRaw = formData.get('meta') as string;
+          const entries = await getEntries();
+          entries.unshift(entry);
+          await saveEntries(entries);
+        } catch (err) {
+          console.error('onUploadCompleted failed:', err);
+        }
+      },
+    });
 
-    if (!file || !metaRaw) {
-      return NextResponse.json({ error: 'Missing file or metadata' }, { status: 400 });
-    }
-
-    const meta = JSON.parse(metaRaw);
-
-    // Convert file to buffer and upload to Vercel Blob
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const { url, pathname } = await uploadMedia(buffer, file.name, file.type);
-
-    // Build entry
-    const entry: EntryData = {
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
-      title: meta.title || '',
-      overlay: meta.overlay || '',
-      caption: meta.caption || '',
-      tags: meta.tags || '',
-      notes: meta.notes || '',
-      mediaType: file.type.startsWith('image/') ? 'image' : 'video',
-      mediaUrl: url,
-      mediaBlobPath: pathname,
-      fileName: file.name,
-      fileSize: buffer.length,
-      isCleaned: true,
-      createdAt: new Date().toISOString(),
-    };
-
-    // Append to index
-    const entries = await getEntries();
-    entries.unshift(entry);
-    await saveEntries(entries);
-
-    return NextResponse.json({ success: true, entry });
+    return NextResponse.json(jsonResponse);
   } catch (error: any) {
-    console.error('Upload failed:', error);
-    const msg = error?.message || 'Upload failed';
-    const detail = error?.cause ? ` (${error.cause})` : '';
-    return NextResponse.json({ error: msg + detail }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }

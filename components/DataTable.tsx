@@ -68,13 +68,23 @@ export default function DataTable({ entries, onToast, onDelete, onUpdate }: Data
     });
   }, [onToast]);
 
-  const download = (url: string, name: string) => {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const download = async (url: string, name: string) => {
+    try {
+      onToast('Downloading...');
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+      onToast('Downloaded');
+    } catch {
+      onToast('Download failed');
+    }
   };
 
   const startEdit = (entry: Entry) => {
