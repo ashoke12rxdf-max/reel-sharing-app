@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEntries, saveEntries, deleteMedia } from '@/lib/storage';
 
+export const dynamic = 'force-dynamic';
+
 // UPDATE an entry's metadata
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEntries, saveEntries, uploadMedia, type EntryData } from '@/lib/storage';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     // Check if Blob token is configured

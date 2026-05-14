@@ -28,12 +28,16 @@ export async function getEntries(): Promise<EntryData[]> {
     if (blobs.length === 0) return [];
 
     const indexBlob = blobs[0];
-    const res = await fetch(indexBlob.url);
+    // CRITICAL: bypass Next.js fetch cache — without this, stale data is served
+    const res = await fetch(indexBlob.url + '?t=' + Date.now(), {
+      cache: 'no-store',
+    });
     if (!res.ok) return [];
 
     const data = await res.json();
     return data as EntryData[];
-  } catch {
+  } catch (err) {
+    console.error('getEntries failed:', err);
     return [];
   }
 }
