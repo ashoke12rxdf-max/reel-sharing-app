@@ -267,6 +267,77 @@ tr:hover .download-btn {
   color: white;
 }
 
+/* ── Row actions (edit / delete) ── */
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+tr:hover .row-actions,
+tr.editing-row .row-actions {
+  opacity: 1;
+}
+.row-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.row-action-btn:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+.row-action-btn.save {
+  color: var(--green);
+}
+.row-action-btn.save:hover {
+  background: var(--green-muted);
+}
+.row-action-btn.danger-confirm {
+  color: var(--red);
+  background: var(--red-muted);
+  animation: pulse-red 600ms ease infinite alternate;
+}
+@keyframes pulse-red {
+  from { box-shadow: 0 0 0 0 rgba(224, 62, 62, 0.2); }
+  to { box-shadow: 0 0 0 4px rgba(224, 62, 62, 0); }
+}
+
+/* ── Inline edit inputs ── */
+.inline-edit {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 0.82rem;
+  font-family: var(--font);
+  color: var(--text-primary);
+  background: var(--bg-input);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-muted);
+}
+tr.editing-row {
+  background: var(--bg-hover);
+}
+
+/* ── Inline toggle for edit mode ── */
+.inline-toggle {
+  cursor: pointer;
+  display: inline-flex;
+}
+.inline-toggle input {
+  display: none;
+}
+
 /* ── Status badge ── */
 .badge {
   display: inline-flex;

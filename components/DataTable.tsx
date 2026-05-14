@@ -37,14 +37,31 @@ const VideoIcon = () => (
 const DatabaseIcon = () => (
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
 );
+const TrashIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+);
+const EditIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+);
+const XIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+);
+const SaveIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+);
 
 interface DataTableProps {
   entries: Entry[];
   onToast: (msg: string) => void;
+  onDelete: (id: string) => void;
+  onUpdate: (entry: Entry) => void;
 }
 
-export default function DataTable({ entries, onToast }: DataTableProps) {
+export default function DataTable({ entries, onToast, onDelete, onUpdate }: DataTableProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editData, setEditData] = useState<Partial<Entry>>({});
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const copy = useCallback((text: string, id: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -63,11 +80,33 @@ export default function DataTable({ entries, onToast }: DataTableProps) {
     document.body.removeChild(a);
   };
 
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  const startEdit = (entry: Entry) => {
+    setEditId(entry.id);
+    setEditData({ title: entry.title, caption: entry.caption, tags: entry.tags, notes: entry.notes, sourceInfo: entry.sourceInfo, status: entry.status, date: entry.date });
   };
+
+  const cancelEdit = () => {
+    setEditId(null);
+    setEditData({});
+  };
+
+  const saveEdit = (entry: Entry) => {
+    onUpdate({ ...entry, ...editData } as Entry);
+    setEditId(null);
+    setEditData({});
+  };
+
+  const confirmDelete = (id: string) => {
+    if (deleteConfirm === id) {
+      onDelete(id);
+      setDeleteConfirm(null);
+    } else {
+      setDeleteConfirm(id);
+      setTimeout(() => setDeleteConfirm(null), 3000);
+    }
+  };
+
+  const setField = (key: string, val: any) => setEditData(prev => ({ ...prev, [key]: val }));
 
   const CopyBtn = ({ text, uid }: { text: string; uid: string }) => (
     <button
@@ -100,79 +139,138 @@ export default function DataTable({ entries, onToast }: DataTableProps) {
             <th>Source</th>
             <th>Date</th>
             <th>Status</th>
+            <th style={{ width: '1%' }}></th>
           </tr>
         </thead>
         <tbody>
-          {entries.map((entry) => (
-            <tr key={entry.id}>
-              {/* File cell: icon + name + download */}
-              <td>
-                <div className="file-cell">
-                  <div className={`file-icon ${entry.mediaType}`}>
-                    {entry.mediaType === 'image' ? <ImageIcon /> : <VideoIcon />}
+          {entries.map((entry) => {
+            const isEditing = editId === entry.id;
+
+            return (
+              <tr key={entry.id} className={isEditing ? 'editing-row' : ''}>
+                {/* File cell */}
+                <td>
+                  <div className="file-cell">
+                    <div className={`file-icon ${entry.mediaType}`}>
+                      {entry.mediaType === 'image' ? <ImageIcon /> : <VideoIcon />}
+                    </div>
+                    <span className="file-name">{entry.fileName}</span>
+                    <button
+                      className="download-btn"
+                      onClick={() => download(entry.mediaUrl, `clean-${entry.fileName}`)}
+                      title="Download clean file"
+                    >
+                      <DownloadIcon />
+                    </button>
                   </div>
-                  <span className="file-name">{entry.fileName}</span>
-                  <button
-                    className="download-btn"
-                    onClick={() => download(entry.mediaUrl, `clean-${entry.fileName}`)}
-                    title="Download clean file"
-                  >
-                    <DownloadIcon />
-                  </button>
-                </div>
-              </td>
+                </td>
 
-              {/* Title */}
-              <td>
-                <div className="cell-text">
-                  <span>{entry.title}</span>
-                  <CopyBtn text={entry.title} uid={`${entry.id}-title`} />
-                </div>
-              </td>
+                {/* Title */}
+                <td>
+                  {isEditing ? (
+                    <input className="inline-edit" value={editData.title || ''} onChange={e => setField('title', e.target.value)} autoFocus />
+                  ) : (
+                    <div className="cell-text">
+                      <span>{entry.title}</span>
+                      <CopyBtn text={entry.title} uid={`${entry.id}-title`} />
+                    </div>
+                  )}
+                </td>
 
-              {/* Caption */}
-              <td>
-                <div className="cell-text">
-                  <span style={{ color: 'var(--text-secondary)' }}>{entry.caption}</span>
-                  <CopyBtn text={entry.caption} uid={`${entry.id}-caption`} />
-                </div>
-              </td>
+                {/* Caption */}
+                <td>
+                  {isEditing ? (
+                    <input className="inline-edit" value={editData.caption || ''} onChange={e => setField('caption', e.target.value)} />
+                  ) : (
+                    <div className="cell-text">
+                      <span style={{ color: 'var(--text-secondary)' }}>{entry.caption}</span>
+                      <CopyBtn text={entry.caption} uid={`${entry.id}-caption`} />
+                    </div>
+                  )}
+                </td>
 
-              {/* Tags */}
-              <td>
-                <div className="cell-text">
-                  <div className="tag-list">
-                    {entry.tags ? entry.tags.split(',').slice(0, 3).map((t, i) => (
-                      <span key={i} className="tag">{t.trim()}</span>
-                    )) : <span style={{ color: 'var(--text-tertiary)', fontSize: '0.78rem' }}>—</span>}
+                {/* Tags */}
+                <td>
+                  {isEditing ? (
+                    <input className="inline-edit" value={editData.tags || ''} onChange={e => setField('tags', e.target.value)} />
+                  ) : (
+                    <div className="cell-text">
+                      <div className="tag-list">
+                        {entry.tags ? entry.tags.split(',').slice(0, 3).map((t: string, i: number) => (
+                          <span key={i} className="tag">{t.trim()}</span>
+                        )) : <span style={{ color: 'var(--text-tertiary)', fontSize: '0.78rem' }}>—</span>}
+                      </div>
+                      {entry.tags && <CopyBtn text={entry.tags} uid={`${entry.id}-tags`} />}
+                    </div>
+                  )}
+                </td>
+
+                {/* Source */}
+                <td>
+                  {isEditing ? (
+                    <input className="inline-edit" value={editData.sourceInfo || ''} onChange={e => setField('sourceInfo', e.target.value)} />
+                  ) : (
+                    <div className="cell-text">
+                      <span style={{ color: entry.sourceInfo ? 'var(--text-link)' : 'var(--text-tertiary)', fontSize: '0.82rem' }}>
+                        {entry.sourceInfo || '—'}
+                      </span>
+                      {entry.sourceInfo && <CopyBtn text={entry.sourceInfo} uid={`${entry.id}-source`} />}
+                    </div>
+                  )}
+                </td>
+
+                {/* Date */}
+                <td>
+                  {isEditing ? (
+                    <input className="inline-edit" type="date" value={editData.date || ''} onChange={e => setField('date', e.target.value)} />
+                  ) : (
+                    <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                      {entry.date}
+                    </span>
+                  )}
+                </td>
+
+                {/* Status */}
+                <td>
+                  {isEditing ? (
+                    <label className="inline-toggle">
+                      <input type="checkbox" checked={editData.status || false} onChange={e => setField('status', e.target.checked)} />
+                      <span className={`badge ${editData.status ? 'approved' : 'draft'}`}>
+                        {editData.status ? 'Approved' : 'Draft'}
+                      </span>
+                    </label>
+                  ) : (
+                    <span className={`badge ${entry.status ? 'approved' : 'draft'}`}>
+                      {entry.status ? 'Approved' : 'Draft'}
+                    </span>
+                  )}
+                </td>
+
+                {/* Actions */}
+                <td>
+                  <div className="row-actions">
+                    {isEditing ? (
+                      <>
+                        <button className="row-action-btn save" onClick={() => saveEdit(entry)} title="Save"><SaveIcon /></button>
+                        <button className="row-action-btn" onClick={cancelEdit} title="Cancel"><XIcon /></button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="row-action-btn" onClick={() => startEdit(entry)} title="Edit"><EditIcon /></button>
+                        <button
+                          className={`row-action-btn ${deleteConfirm === entry.id ? 'danger-confirm' : ''}`}
+                          onClick={() => confirmDelete(entry.id)}
+                          title={deleteConfirm === entry.id ? 'Click again to confirm' : 'Delete'}
+                        >
+                          <TrashIcon />
+                        </button>
+                      </>
+                    )}
                   </div>
-                  {entry.tags && <CopyBtn text={entry.tags} uid={`${entry.id}-tags`} />}
-                </div>
-              </td>
-
-              {/* Source */}
-              <td>
-                <div className="cell-text">
-                  <span style={{ color: entry.sourceInfo ? 'var(--text-link)' : 'var(--text-tertiary)', fontSize: '0.82rem' }}>
-                    {entry.sourceInfo || '—'}
-                  </span>
-                  {entry.sourceInfo && <CopyBtn text={entry.sourceInfo} uid={`${entry.id}-source`} />}
-                </div>
-              </td>
-
-              {/* Date */}
-              <td style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                {entry.date}
-              </td>
-
-              {/* Status */}
-              <td>
-                <span className={`badge ${entry.status ? 'approved' : 'draft'}`}>
-                  {entry.status ? 'Approved' : 'Draft'}
-                </span>
-              </td>
-            </tr>
-          ))}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
