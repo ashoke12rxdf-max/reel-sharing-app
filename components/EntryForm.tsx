@@ -7,7 +7,6 @@ interface EntryFormProps {
   onSuccess: (entry: any) => void;
 }
 
-// Inline SVG icons
 const PlusIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 );
@@ -16,9 +15,6 @@ const UploadIcon = () => (
 );
 const XIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-);
-const CheckIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
 );
 const ShieldIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -32,6 +28,7 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
   const [file, setFile] = useState<File | null>(null);
   const [scrubResult, setScrubResult] = useState<ScrubResult | null>(null);
   const [scrubbing, setScrubbing] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [scrubError, setScrubError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '', caption: '', tags: '', notes: '', sourceInfo: '',
@@ -43,6 +40,7 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
     setFile(null);
     setScrubResult(null);
     setScrubbing(false);
+    setUploading(false);
     setScrubError(null);
     setFormData({ title: '', caption: '', tags: '', notes: '', sourceInfo: '', status: false, date: new Date().toISOString().split('T')[0] });
   };
@@ -52,7 +50,6 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
     setScrubResult(null);
     setScrubError(null);
     setScrubbing(true);
-
     try {
       const result = await scrubFile(f);
       setScrubResult(result);
@@ -74,30 +71,33 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
     if (f) processFile(f);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file || !scrubResult) return;
 
-    const entry = {
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
-      ...formData,
-      mediaType: scrubResult.mediaType,
-      mediaUrl: scrubResult.url,             // ← clean blob URL, not original
-      fileName: file.name,
-      fileSize: scrubResult.cleanSize,        // ← clean file size
-      originalSize: scrubResult.originalSize,
-      stripped: scrubResult.stripped,
-      isCleaned: true,
-      createdAt: new Date().toISOString(),
-    };
+    setUploading(true);
 
-    onSuccess(entry);
-    setIsOpen(false);
-    reset();
+    try {
+      // Build FormData with the CLEAN blob + metadata
+      const fd = new FormData();
+      fd.append('file', scrubResult.blob, file.name);
+      fd.append('meta', JSON.stringify(formData));
+
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+      onSuccess(data.entry);
+      setIsOpen(false);
+      reset();
+    } catch (err: any) {
+      setScrubError(err.message || 'Upload failed');
+      setUploading(false);
+    }
   };
 
   const set = (key: string, val: any) => setFormData(prev => ({ ...prev, [key]: val }));
-
   const formatBytes = (b: number) => b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(0) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
 
   if (!isOpen) {
@@ -117,7 +117,6 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
         </div>
         <div className="modal-body">
           <form onSubmit={handleSubmit}>
-            {/* Upload zone */}
             <div className="form-row">
               <div
                 className={`upload-zone ${scrubResult ? 'has-file' : ''} ${scrubError ? 'has-error' : ''}`}
@@ -126,7 +125,6 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
                 onDrop={handleDrop}
               >
                 <input ref={fileInputRef} type="file" accept="image/*,video/*" onChange={handleFileChange} style={{ display: 'none' }} />
-
                 {scrubbing ? (
                   <>
                     <LoaderIcon />
@@ -135,8 +133,8 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
                   </>
                 ) : scrubError ? (
                   <>
-                    <p style={{ color: 'var(--red)' }}>Scrub failed: {scrubError}</p>
-                    <div className="upload-filename">Click to try another file</div>
+                    <p style={{ color: 'var(--red)' }}>{scrubError}</p>
+                    <div className="upload-filename">Click to try again</div>
                   </>
                 ) : scrubResult ? (
                   <>
@@ -162,7 +160,6 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
               </div>
             </div>
 
-            {/* Text inputs */}
             <div className="form-row">
               <label className="form-label">Title</label>
               <input className="form-input" placeholder="Entry title" required value={formData.title} onChange={e => set('title', e.target.value)} />
@@ -204,8 +201,8 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
 
             <div className="form-footer">
               <button type="button" className="btn-cancel" onClick={() => { setIsOpen(false); reset(); }}>Cancel</button>
-              <button type="submit" className="btn-submit" disabled={!scrubResult || scrubbing}>
-                {scrubbing ? 'Processing...' : 'Save Clean Entry'}
+              <button type="submit" className="btn-submit" disabled={!scrubResult || scrubbing || uploading}>
+                {uploading ? 'Uploading...' : scrubbing ? 'Scrubbing...' : 'Save Entry'}
               </button>
             </div>
           </form>
