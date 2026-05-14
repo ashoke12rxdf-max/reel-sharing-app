@@ -5,12 +5,10 @@ const INDEX_KEY = 'entries-index.json';
 export interface EntryData {
   id: string;
   title: string;
+  overlay: string;
   caption: string;
   tags: string;
   notes: string;
-  sourceInfo: string;
-  status: boolean;
-  date: string;
   mediaType: 'image' | 'video';
   mediaUrl: string;      // permanent Vercel Blob CDN URL
   mediaBlobPath: string;  // blob pathname for deletion

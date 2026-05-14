@@ -21,12 +21,10 @@ export async function POST(req: NextRequest) {
     const entry: EntryData = {
       id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
       title: meta.title || '',
+      overlay: meta.overlay || '',
       caption: meta.caption || '',
       tags: meta.tags || '',
       notes: meta.notes || '',
-      sourceInfo: meta.sourceInfo || '',
-      status: meta.status || false,
-      date: meta.date || new Date().toISOString().split('T')[0],
       mediaType: file.type.startsWith('image/') ? 'image' : 'video',
       mediaUrl: url,
       mediaBlobPath: pathname,

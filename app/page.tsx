@@ -91,10 +91,6 @@ export default function Dashboard() {
           <span className="stat-dot" style={{ background: 'var(--orange)' }} />
           {videoCount} videos
         </div>
-        <div className="stat-item">
-          <span className="stat-dot" style={{ background: 'var(--green)' }} />
-          {entries.filter(e => e.status).length} approved
-        </div>
       </div>
 
       <div className="toolbar">

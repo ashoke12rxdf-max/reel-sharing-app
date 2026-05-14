@@ -31,8 +31,7 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
   const [uploading, setUploading] = useState(false);
   const [scrubError, setScrubError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    title: '', caption: '', tags: '', notes: '', sourceInfo: '',
-    status: false, date: new Date().toISOString().split('T')[0],
+    title: '', caption: '', overlay: '', tags: '', notes: '',
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -42,7 +41,7 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
     setScrubbing(false);
     setUploading(false);
     setScrubError(null);
-    setFormData({ title: '', caption: '', tags: '', notes: '', sourceInfo: '', status: false, date: new Date().toISOString().split('T')[0] });
+    setFormData({ title: '', caption: '', overlay: '', tags: '', notes: '' });
   };
 
   const processFile = async (f: File) => {
@@ -78,7 +77,6 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
     setUploading(true);
 
     try {
-      // Build FormData with the CLEAN blob + metadata
       const fd = new FormData();
       fd.append('file', scrubResult.blob, file.name);
       fd.append('meta', JSON.stringify(formData));
@@ -164,38 +162,22 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
               <label className="form-label">Title</label>
               <input className="form-input" placeholder="Entry title" required value={formData.title} onChange={e => set('title', e.target.value)} />
             </div>
+            <div className="form-row">
+              <label className="form-label">Overlay</label>
+              <textarea className="form-input" placeholder="Overlay text..." value={formData.overlay} onChange={e => set('overlay', e.target.value)} />
+            </div>
+            <div className="form-row">
+              <label className="form-label">Caption</label>
+              <textarea className="form-input" placeholder="Caption text..." required value={formData.caption} onChange={e => set('caption', e.target.value)} />
+            </div>
             <div className="form-grid">
-              <div className="form-row">
-                <label className="form-label">Caption</label>
-                <input className="form-input" placeholder="Short description" required value={formData.caption} onChange={e => set('caption', e.target.value)} />
-              </div>
               <div className="form-row">
                 <label className="form-label">Tags</label>
                 <input className="form-input" placeholder="comma, separated" value={formData.tags} onChange={e => set('tags', e.target.value)} />
               </div>
-            </div>
-            <div className="form-row">
-              <label className="form-label">Notes</label>
-              <textarea className="form-input" placeholder="Internal notes..." value={formData.notes} onChange={e => set('notes', e.target.value)} />
-            </div>
-            <div className="form-grid">
               <div className="form-row">
-                <label className="form-label">Source</label>
-                <input className="form-input" placeholder="URL or origin" value={formData.sourceInfo} onChange={e => set('sourceInfo', e.target.value)} />
-              </div>
-              <div className="form-row">
-                <label className="form-label">Date</label>
-                <input className="form-input" type="date" value={formData.date} onChange={e => set('date', e.target.value)} />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="toggle-row">
-                <label className="toggle">
-                  <input type="checkbox" checked={formData.status} onChange={e => set('status', e.target.checked)} />
-                  <div className="toggle-track" />
-                  <div className="toggle-knob" />
-                </label>
-                <span className="toggle-label">Approved</span>
+                <label className="form-label">Notes</label>
+                <input className="form-input" placeholder="Internal notes" value={formData.notes} onChange={e => set('notes', e.target.value)} />
               </div>
             </div>
 

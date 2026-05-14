@@ -16,12 +16,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     entries[idx] = {
       ...entries[idx],
       title: updates.title ?? entries[idx].title,
+      overlay: updates.overlay ?? entries[idx].overlay,
       caption: updates.caption ?? entries[idx].caption,
       tags: updates.tags ?? entries[idx].tags,
       notes: updates.notes ?? entries[idx].notes,
-      sourceInfo: updates.sourceInfo ?? entries[idx].sourceInfo,
-      status: updates.status ?? entries[idx].status,
-      date: updates.date ?? entries[idx].date,
     };
 
     await saveEntries(entries);

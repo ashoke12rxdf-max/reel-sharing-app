@@ -6,11 +6,9 @@ interface Entry {
   id: string;
   title: string;
   caption: string;
+  overlay: string;
   tags: string;
   notes: string;
-  sourceInfo: string;
-  status: boolean;
-  date: string;
   mediaType: 'image' | 'video';
   mediaUrl: string;
   fileName: string;
@@ -18,7 +16,6 @@ interface Entry {
   isCleaned: boolean;
 }
 
-// Inline SVG icons
 const CopyIcon = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
 );
@@ -82,7 +79,7 @@ export default function DataTable({ entries, onToast, onDelete, onUpdate }: Data
 
   const startEdit = (entry: Entry) => {
     setEditId(entry.id);
-    setEditData({ title: entry.title, caption: entry.caption, tags: entry.tags, notes: entry.notes, sourceInfo: entry.sourceInfo, status: entry.status, date: entry.date });
+    setEditData({ title: entry.title, overlay: entry.overlay, caption: entry.caption, tags: entry.tags, notes: entry.notes });
   };
 
   const cancelEdit = () => {
@@ -134,11 +131,10 @@ export default function DataTable({ entries, onToast, onDelete, onUpdate }: Data
           <tr>
             <th>File</th>
             <th>Title</th>
+            <th>Overlay</th>
             <th>Caption</th>
             <th>Tags</th>
-            <th>Source</th>
-            <th>Date</th>
-            <th>Status</th>
+            <th>Notes</th>
             <th style={{ width: '1%' }}></th>
           </tr>
         </thead>
@@ -148,7 +144,7 @@ export default function DataTable({ entries, onToast, onDelete, onUpdate }: Data
 
             return (
               <tr key={entry.id} className={isEditing ? 'editing-row' : ''}>
-                {/* File cell */}
+                {/* File */}
                 <td>
                   <div className="file-cell">
                     <div className={`file-icon ${entry.mediaType}`}>
@@ -173,6 +169,18 @@ export default function DataTable({ entries, onToast, onDelete, onUpdate }: Data
                     <div className="cell-text">
                       <span>{entry.title}</span>
                       <CopyBtn text={entry.title} uid={`${entry.id}-title`} />
+                    </div>
+                  )}
+                </td>
+
+                {/* Overlay */}
+                <td>
+                  {isEditing ? (
+                    <input className="inline-edit" value={editData.overlay || ''} onChange={e => setField('overlay', e.target.value)} />
+                  ) : (
+                    <div className="cell-text">
+                      <span style={{ color: 'var(--text-secondary)' }}>{entry.overlay || '—'}</span>
+                      {entry.overlay && <CopyBtn text={entry.overlay} uid={`${entry.id}-overlay`} />}
                     </div>
                   )}
                 </td>
@@ -205,44 +213,15 @@ export default function DataTable({ entries, onToast, onDelete, onUpdate }: Data
                   )}
                 </td>
 
-                {/* Source */}
+                {/* Notes */}
                 <td>
                   {isEditing ? (
-                    <input className="inline-edit" value={editData.sourceInfo || ''} onChange={e => setField('sourceInfo', e.target.value)} />
+                    <input className="inline-edit" value={editData.notes || ''} onChange={e => setField('notes', e.target.value)} />
                   ) : (
                     <div className="cell-text">
-                      <span style={{ color: entry.sourceInfo ? 'var(--text-link)' : 'var(--text-tertiary)', fontSize: '0.82rem' }}>
-                        {entry.sourceInfo || '—'}
-                      </span>
-                      {entry.sourceInfo && <CopyBtn text={entry.sourceInfo} uid={`${entry.id}-source`} />}
+                      <span style={{ color: 'var(--text-tertiary)' }}>{entry.notes || '—'}</span>
+                      {entry.notes && <CopyBtn text={entry.notes} uid={`${entry.id}-notes`} />}
                     </div>
-                  )}
-                </td>
-
-                {/* Date */}
-                <td>
-                  {isEditing ? (
-                    <input className="inline-edit" type="date" value={editData.date || ''} onChange={e => setField('date', e.target.value)} />
-                  ) : (
-                    <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                      {entry.date}
-                    </span>
-                  )}
-                </td>
-
-                {/* Status */}
-                <td>
-                  {isEditing ? (
-                    <label className="inline-toggle">
-                      <input type="checkbox" checked={editData.status || false} onChange={e => setField('status', e.target.checked)} />
-                      <span className={`badge ${editData.status ? 'approved' : 'draft'}`}>
-                        {editData.status ? 'Approved' : 'Draft'}
-                      </span>
-                    </label>
-                  ) : (
-                    <span className={`badge ${entry.status ? 'approved' : 'draft'}`}>
-                      {entry.status ? 'Approved' : 'Draft'}
-                    </span>
                   )}
                 </td>
 
