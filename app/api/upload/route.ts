@@ -3,6 +3,14 @@ import { getEntries, saveEntries, uploadMedia, type EntryData } from '@/lib/stor
 
 export async function POST(req: NextRequest) {
   try {
+    // Check if Blob token is configured
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return NextResponse.json(
+        { error: 'BLOB_READ_WRITE_TOKEN not configured. Go to Vercel Dashboard → Storage → Connect your Blob store to this project.' },
+        { status: 500 }
+      );
+    }
+
     const formData = await req.formData();
     const file = formData.get('file') as File;
     const metaRaw = formData.get('meta') as string;
@@ -42,6 +50,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, entry });
   } catch (error: any) {
     console.error('Upload failed:', error);
-    return NextResponse.json({ error: error.message || 'Upload failed' }, { status: 500 });
+    const msg = error?.message || 'Upload failed';
+    const detail = error?.cause ? ` (${error.cause})` : '';
+    return NextResponse.json({ error: msg + detail }, { status: 500 });
   }
 }
