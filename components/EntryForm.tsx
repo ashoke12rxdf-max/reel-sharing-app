@@ -1,207 +1,158 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Upload, X, Check, Calendar, Type, Hash, Info, FileText } from 'lucide-react';
 
 interface EntryFormProps {
   onSuccess: (entry: any) => void;
 }
 
+// Inline SVG icons to avoid any import issues
+const PlusIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+);
+const UploadIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+);
+const XIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+);
+const CheckIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+);
+
 export default function EntryForm({ onSuccess }: EntryFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    title: '',
-    caption: '',
-    tags: '',
-    notes: '',
-    sourceInfo: '',
-    status: false,
-    date: new Date().toISOString().split('T')[0],
+    title: '', caption: '', tags: '', notes: '', sourceInfo: '',
+    status: false, date: new Date().toISOString().split('T')[0],
   });
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      const url = URL.createObjectURL(selectedFile);
-      setPreview(url);
-    }
+  const reset = () => {
+    setFile(null);
+    setFormData({ title: '', caption: '', tags: '', notes: '', sourceInfo: '', status: false, date: new Date().toISOString().split('T')[0] });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) setFile(f);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const f = e.dataTransfer.files?.[0];
+    if (f) setFile(f);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
-
-    // Simulate Privacy Airlock Scrubbing & Submission
-    const newEntry = {
-      id: Math.random().toString(36).substr(2, 9),
+    const mediaUrl = URL.createObjectURL(file);
+    const entry = {
+      id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
       ...formData,
       mediaType: file.type.startsWith('image/') ? 'image' : 'video',
-      mediaUrl: preview,
-      originalName: file.name,
-      createdAt: new Date().toISOString(),
+      mediaUrl,
+      fileName: file.name,
+      fileSize: file.size,
       isCleaned: true,
+      createdAt: new Date().toISOString(),
     };
-
-    onSuccess(newEntry);
+    onSuccess(entry);
     setIsOpen(false);
-    // Reset form
-    setFile(null);
-    setPreview(null);
-    setFormData({
-      title: '',
-      caption: '',
-      tags: '',
-      notes: '',
-      sourceInfo: '',
-      status: false,
-      date: new Date().toISOString().split('T')[0],
-    });
+    reset();
   };
+
+  const set = (key: string, val: any) => setFormData(prev => ({ ...prev, [key]: val }));
 
   if (!isOpen) {
     return (
-      <button onClick={() => setIsOpen(true)} className="btn btn-primary mb-8">
-        <Upload size={18} /> New Entry (Airlock Protected)
+      <button onClick={() => setIsOpen(true)} className="btn-action primary" id="new-entry-btn">
+        <PlusIcon /> New
       </button>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="glass w-full max-w-2xl max-h-[90vh] overflow-y-auto p-8 shadow-2xl relative">
-        <button 
-          onClick={() => setIsOpen(false)}
-          className="absolute top-4 right-4 text-secondary hover:text-white transition-colors"
-        >
-          <X size={24} />
-        </button>
-
-        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-          Airlock Data Injection
-        </h2>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Media Upload Area */}
-          <div 
-            onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-border-color rounded-2xl p-8 text-center cursor-pointer hover:border-accent-primary transition-colors bg-white/5"
-          >
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleFileChange} 
-              className="hidden" 
-              accept="image/*,video/*"
-            />
-            
-            {preview ? (
-              <div className="relative aspect-video max-h-48 mx-auto rounded-lg overflow-hidden bg-black">
-                {file?.type.startsWith('image/') ? (
-                  <img src={preview} alt="Preview" className="w-full h-full object-contain" />
+    <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) { setIsOpen(false); reset(); } }}>
+      <div className="modal-panel">
+        <div className="modal-header">
+          <h3>New Entry</h3>
+          <button className="modal-close" onClick={() => { setIsOpen(false); reset(); }}><XIcon /></button>
+        </div>
+        <div className="modal-body">
+          <form onSubmit={handleSubmit}>
+            {/* Upload zone */}
+            <div className="form-row">
+              <div
+                className={`upload-zone ${file ? 'has-file' : ''}`}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+              >
+                <input ref={fileInputRef} type="file" accept="image/*,video/*" onChange={handleFileChange} style={{ display: 'none' }} />
+                {file ? (
+                  <>
+                    <CheckIcon />
+                    <p>{file.type.startsWith('image/') ? 'Image' : 'Video'} selected</p>
+                    <div className="upload-filename">{file.name} · {(file.size / 1024).toFixed(0)} KB</div>
+                  </>
                 ) : (
-                  <video src={preview} className="w-full h-full object-contain" />
+                  <>
+                    <div className="upload-icon"><UploadIcon /></div>
+                    <p>Drop file or click to upload</p>
+                  </>
                 )}
-                <div className="absolute top-2 right-2 bg-black/50 p-1 rounded-full text-white">
-                  <Check size={16} />
-                </div>
               </div>
-            ) : (
-              <div className="flex flex-direction-column items-center gap-2 text-secondary">
-                <Upload size={48} className="mb-2 opacity-50" />
-                <p className="font-medium">Drag & drop or click to upload</p>
-                <p className="text-xs">Images and Videos are automatically scrubbed</p>
+            </div>
+
+            {/* Text inputs */}
+            <div className="form-row">
+              <label className="form-label">Title</label>
+              <input className="form-input" placeholder="Entry title" required value={formData.title} onChange={e => set('title', e.target.value)} />
+            </div>
+            <div className="form-grid">
+              <div className="form-row">
+                <label className="form-label">Caption</label>
+                <input className="form-input" placeholder="Short description" required value={formData.caption} onChange={e => set('caption', e.target.value)} />
               </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* 5 Distinct Text Inputs */}
-            <div className="input-group">
-              <label className="label"><Type size={14} className="inline mr-1" /> Title</label>
-              <input 
-                required
-                className="input" 
-                placeholder="Enter title..." 
-                value={formData.title}
-                onChange={e => setFormData({...formData, title: e.target.value})}
-              />
+              <div className="form-row">
+                <label className="form-label">Tags</label>
+                <input className="form-input" placeholder="comma, separated" value={formData.tags} onChange={e => set('tags', e.target.value)} />
+              </div>
             </div>
-            <div className="input-group">
-              <label className="label"><FileText size={14} className="inline mr-1" /> Caption</label>
-              <input 
-                required
-                className="input" 
-                placeholder="Brief caption..." 
-                value={formData.caption}
-                onChange={e => setFormData({...formData, caption: e.target.value})}
-              />
+            <div className="form-row">
+              <label className="form-label">Notes</label>
+              <textarea className="form-input" placeholder="Internal notes..." value={formData.notes} onChange={e => set('notes', e.target.value)} />
             </div>
-            <div className="input-group">
-              <label className="label"><Hash size={14} className="inline mr-1" /> Tags</label>
-              <input 
-                className="input" 
-                placeholder="comma, separated, tags" 
-                value={formData.tags}
-                onChange={e => setFormData({...formData, tags: e.target.value})}
-              />
+            <div className="form-grid">
+              <div className="form-row">
+                <label className="form-label">Source</label>
+                <input className="form-input" placeholder="URL or origin" value={formData.sourceInfo} onChange={e => set('sourceInfo', e.target.value)} />
+              </div>
+              <div className="form-row">
+                <label className="form-label">Date</label>
+                <input className="form-input" type="date" value={formData.date} onChange={e => set('date', e.target.value)} />
+              </div>
             </div>
-            <div className="input-group">
-              <label className="label"><Info size={14} className="inline mr-1" /> Source Info</label>
-              <input 
-                className="input" 
-                placeholder="URL or Origin..." 
-                value={formData.sourceInfo}
-                onChange={e => setFormData({...formData, sourceInfo: e.target.value})}
-              />
-            </div>
-            <div className="input-group md:col-span-2">
-              <label className="label">Internal Notes</label>
-              <textarea 
-                className="input min-h-[100px]" 
-                placeholder="Private notes for this entry..." 
-                value={formData.notes}
-                onChange={e => setFormData({...formData, notes: e.target.value})}
-              />
+            <div className="form-row">
+              <div className="toggle-row">
+                <label className="toggle">
+                  <input type="checkbox" checked={formData.status} onChange={e => set('status', e.target.checked)} />
+                  <div className="toggle-track" />
+                  <div className="toggle-knob" />
+                </label>
+                <span className="toggle-label">Approved</span>
+              </div>
             </div>
 
-            {/* Checkbox & Date Picker */}
-            <div className="input-group">
-              <label className="label"><Calendar size={14} className="inline mr-1" /> Date</label>
-              <input 
-                type="date"
-                className="input" 
-                value={formData.date}
-                onChange={e => setFormData({...formData, date: e.target.value})}
-              />
+            <div className="form-footer">
+              <button type="button" className="btn-cancel" onClick={() => { setIsOpen(false); reset(); }}>Cancel</button>
+              <button type="submit" className="btn-submit" disabled={!file}>Save Entry</button>
             </div>
-            <div className="flex items-center gap-4 mt-6">
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <div className="relative">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={formData.status}
-                    onChange={e => setFormData({...formData, status: e.target.checked})}
-                  />
-                  <div className="w-12 h-6 bg-gray-600 rounded-full peer peer-checked:bg-blue-600 transition-colors"></div>
-                  <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
-                </div>
-                <span className="text-sm font-medium">Approved / Ready</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-border-color flex justify-end gap-3">
-            <button type="button" onClick={() => setIsOpen(false)} className="btn btn-secondary">Cancel</button>
-            <button type="submit" className="btn btn-primary">Process & Save</button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );

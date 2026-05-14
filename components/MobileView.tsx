@@ -1,7 +1,6 @@
 'use client';
 
-import React from 'react';
-import { Download, Copy, ShieldCheck, Video, Image as ImageIcon } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
 
 interface Entry {
   id: string;
@@ -14,88 +13,124 @@ interface Entry {
   date: string;
   mediaType: 'image' | 'video';
   mediaUrl: string;
+  fileName: string;
+  fileSize: number;
   isCleaned: boolean;
 }
 
+// Inline SVG icons
+const CopyIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+);
+const CheckIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+);
+const DownloadIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+);
+
 interface MobileViewProps {
   entries: Entry[];
+  onToast: (msg: string) => void;
 }
 
-export default function MobileView({ entries }: MobileViewProps) {
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    // Simple visual feedback
-    alert('Copied to clipboard!');
+export default function MobileView({ entries, onToast }: MobileViewProps) {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const copy = useCallback((text: string, uid: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(uid);
+      onToast('Copied');
+      setTimeout(() => setCopiedId(null), 1000);
+    });
+  }, [onToast]);
+
+  const download = (url: string, name: string) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
-  const triggerDownload = (url: string, filename: string) => {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const CopyButton = ({ text, uid }: { text: string; uid: string }) => {
+    const isCopied = copiedId === uid;
+    return (
+      <button
+        className={`mobile-copy-btn ${isCopied ? 'copied' : ''}`}
+        onClick={() => copy(text, uid)}
+      >
+        {isCopied ? <CheckIcon /> : <CopyIcon />}
+      </button>
+    );
   };
+
+  if (entries.length === 0) {
+    return (
+      <div className="empty-state">
+        <p>No files in transfer queue.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-4 pb-20">
-      <div className="flex items-center justify-between mb-4 px-2">
-        <h2 className="text-xl font-bold text-white uppercase tracking-tighter">Transfer Hub</h2>
-        <div className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded font-bold border border-blue-500/30">LOW RAM MODE</div>
-      </div>
-
-      {entries.length === 0 ? (
-        <div className="text-center py-20 text-secondary opacity-50">Empty Queue</div>
-      ) : (
-        entries.map((entry) => (
-          <div key={entry.id} className="bg-[#151518] border border-white/10 rounded-xl p-4 flex flex-col gap-4 shadow-xl">
-            {/* Minimal Header */}
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-lg text-white truncate">{entry.title}</h3>
-                <div 
-                  onClick={() => copyToClipboard(entry.caption)}
-                  className="text-sm text-secondary line-clamp-1 flex items-center gap-2 mt-1 active:bg-white/10 p-1 rounded transition-colors"
-                >
-                  <Copy size={12} /> {entry.caption}
-                </div>
-              </div>
-              <div className="w-12 h-12 rounded-lg bg-black/40 flex items-center justify-center border border-white/5">
-                {entry.mediaType === 'image' ? <ImageIcon size={20} /> : <Video size={20} />}
-              </div>
-            </div>
-
-            {/* Quick Copy Grid */}
-            <div className="grid grid-cols-2 gap-2">
-              <button 
-                onClick={() => copyToClipboard(entry.tags)}
-                className="flex items-center justify-center gap-2 bg-white/5 border border-white/10 py-3 rounded-lg text-xs font-bold active:scale-95 transition-transform"
-              >
-                <Copy size={14} /> COPY TAGS
-              </button>
-              <button 
-                onClick={() => copyToClipboard(entry.sourceInfo)}
-                className="flex items-center justify-center gap-2 bg-white/5 border border-white/10 py-3 rounded-lg text-xs font-bold active:scale-95 transition-transform"
-              >
-                <Copy size={14} /> COPY LINK
-              </button>
-            </div>
-
-            {/* High-Contrast Download Button */}
-            <button 
-              onClick={() => triggerDownload(entry.mediaUrl, `clean-${entry.title.replace(/\s+/g, '-')}`)}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-xl flex items-center justify-center gap-3 shadow-[0_4px_20px_rgba(37,99,235,0.4)] active:scale-95 transition-all text-lg"
+    <div className="mobile-view">
+      {entries.map((entry) => (
+        <div key={entry.id} className="mobile-card">
+          <div className="mobile-card-header">
+            <span className="mobile-card-title">{entry.title}</span>
+            <span
+              className="mobile-card-type"
+              style={{
+                background: entry.mediaType === 'image' ? 'var(--purple-muted)' : 'var(--orange-muted)',
+                color: entry.mediaType === 'image' ? 'var(--purple)' : 'var(--orange)',
+              }}
             >
-              <Download size={24} strokeWidth={3} />
-              GET CLEAN FILE
-            </button>
-
-            <div className="flex items-center justify-center gap-2 text-[10px] text-green-400 font-bold opacity-80">
-              <ShieldCheck size={12} /> METADATA STRIPPED | SECURE TRANSFER
-            </div>
+              {entry.mediaType === 'image' ? 'IMG' : 'VID'}
+            </span>
           </div>
-        ))
-      )}
+          <div className="mobile-card-body">
+            {/* Each text field as a row with one-tap copy */}
+            {entry.caption && (
+              <div className="mobile-field">
+                <span className="mobile-field-label">Caption</span>
+                <span className="mobile-field-value">{entry.caption}</span>
+                <CopyButton text={entry.caption} uid={`m-${entry.id}-caption`} />
+              </div>
+            )}
+            {entry.tags && (
+              <div className="mobile-field">
+                <span className="mobile-field-label">Tags</span>
+                <span className="mobile-field-value">{entry.tags}</span>
+                <CopyButton text={entry.tags} uid={`m-${entry.id}-tags`} />
+              </div>
+            )}
+            {entry.notes && (
+              <div className="mobile-field">
+                <span className="mobile-field-label">Notes</span>
+                <span className="mobile-field-value">{entry.notes}</span>
+                <CopyButton text={entry.notes} uid={`m-${entry.id}-notes`} />
+              </div>
+            )}
+            {entry.sourceInfo && (
+              <div className="mobile-field">
+                <span className="mobile-field-label">Source</span>
+                <span className="mobile-field-value">{entry.sourceInfo}</span>
+                <CopyButton text={entry.sourceInfo} uid={`m-${entry.id}-source`} />
+              </div>
+            )}
+
+            {/* Download button */}
+            <button
+              className="mobile-download"
+              onClick={() => download(entry.mediaUrl, `clean-${entry.fileName}`)}
+            >
+              <DownloadIcon /> Download Clean File
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
