@@ -445,6 +445,42 @@ textarea.form-input {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.upload-zone.has-error {
+  border-style: solid;
+  border-color: var(--red);
+  background: var(--red-muted);
+}
+
+/* Scrub detail tags */
+.scrub-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+  justify-content: center;
+}
+.scrub-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  background: rgba(77, 170, 87, 0.08);
+  border: 1px solid rgba(77, 170, 87, 0.15);
+  border-radius: 3px;
+  font-size: 0.65rem;
+  color: var(--green);
+  white-space: nowrap;
+}
+
+/* Spinner */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Disabled submit */
+.btn-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 
 /* Toggle / Checkbox */
 .toggle-row {
