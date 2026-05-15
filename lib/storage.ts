@@ -1,6 +1,4 @@
-import { put, list, del, head } from '@vercel/blob';
-
-const INDEX_KEY = 'entries-index.json';
+import { put, list, del } from '@vercel/blob';
 
 export interface EntryData {
   id: string;
@@ -10,32 +8,43 @@ export interface EntryData {
   tags: string;
   notes: string;
   mediaType: 'image' | 'video';
-  mediaUrl: string;      // permanent Vercel Blob CDN URL
-  mediaBlobPath: string;  // blob pathname for deletion
+  mediaUrl: string;
+  mediaBlobPath: string;
   fileName: string;
   fileSize: number;
   isCleaned: boolean;
   createdAt: string;
 }
 
+const ENTRY_PREFIX = 'entries/';
+
 /**
- * Read the entries index from Vercel Blob.
- * Returns an empty array if it doesn't exist yet.
+ * Get all entries by listing individual entry blobs.
+ * Each entry is stored as its own blob — no shared index to get stale.
  */
 export async function getEntries(): Promise<EntryData[]> {
   try {
-    const { blobs } = await list({ prefix: INDEX_KEY });
+    const { blobs } = await list({ prefix: ENTRY_PREFIX });
     if (blobs.length === 0) return [];
 
-    const indexBlob = blobs[0];
-    // CRITICAL: bypass Next.js fetch cache — without this, stale data is served
-    const res = await fetch(indexBlob.url + '?t=' + Date.now(), {
-      cache: 'no-store',
-    });
-    if (!res.ok) return [];
+    // Fetch all entry blobs in parallel
+    const entries = await Promise.all(
+      blobs.map(async (blob) => {
+        try {
+          const res = await fetch(blob.url + '?t=' + Date.now(), { cache: 'no-store' });
+          if (!res.ok) return null;
+          const data = await res.json();
+          return data as EntryData;
+        } catch {
+          return null;
+        }
+      })
+    );
 
-    const data = await res.json();
-    return data as EntryData[];
+    // Filter out failed fetches, sort newest first
+    return entries
+      .filter((e): e is EntryData => e !== null)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   } catch (err) {
     console.error('getEntries failed:', err);
     return [];
@@ -43,11 +52,11 @@ export async function getEntries(): Promise<EntryData[]> {
 }
 
 /**
- * Write the entries index to Vercel Blob.
- * Overwrites the existing index.
+ * Save a single entry as its own blob.
+ * No shared index — no race conditions.
  */
-export async function saveEntries(entries: EntryData[]): Promise<void> {
-  await put(INDEX_KEY, JSON.stringify(entries), {
+export async function saveEntry(entry: EntryData): Promise<void> {
+  await put(`${ENTRY_PREFIX}${entry.id}.json`, JSON.stringify(entry), {
     access: 'public',
     addRandomSuffix: false,
     contentType: 'application/json',
@@ -55,33 +64,50 @@ export async function saveEntries(entries: EntryData[]): Promise<void> {
 }
 
 /**
- * Upload a clean media file to Vercel Blob.
- * Returns the permanent public URL and blob pathname.
+ * Delete a single entry blob + its media file.
  */
-export async function uploadMedia(
-  fileBuffer: Buffer,
-  fileName: string,
-  contentType: string
-): Promise<{ url: string; pathname: string }> {
-  const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const pathname = `media/${Date.now()}-${safeName}`;
+export async function deleteEntry(id: string): Promise<void> {
+  // Find the entry blob to get its media URL
+  const { blobs } = await list({ prefix: `${ENTRY_PREFIX}${id}` });
 
-  const blob = await put(pathname, fileBuffer, {
-    access: 'public',
-    addRandomSuffix: false,
-    contentType,
-  });
+  for (const blob of blobs) {
+    try {
+      // Read the entry to find its media URL
+      const res = await fetch(blob.url + '?t=' + Date.now(), { cache: 'no-store' });
+      if (res.ok) {
+        const entry = await res.json() as EntryData;
+        // Delete the media file
+        if (entry.mediaUrl) {
+          try { await del(entry.mediaUrl); } catch {}
+        }
+      }
+    } catch {}
 
-  return { url: blob.url, pathname: blob.pathname };
+    // Delete the entry blob itself
+    await del(blob.url);
+  }
 }
 
 /**
- * Delete a media file from Vercel Blob.
+ * Update an entry's metadata (keeps media unchanged).
  */
-export async function deleteMedia(url: string): Promise<void> {
-  try {
-    await del(url);
-  } catch {
-    // File may already be deleted
-  }
+export async function updateEntry(id: string, updates: Partial<EntryData>): Promise<EntryData | null> {
+  const { blobs } = await list({ prefix: `${ENTRY_PREFIX}${id}` });
+  if (blobs.length === 0) return null;
+
+  const res = await fetch(blobs[0].url + '?t=' + Date.now(), { cache: 'no-store' });
+  if (!res.ok) return null;
+
+  const existing = await res.json() as EntryData;
+  const updated: EntryData = {
+    ...existing,
+    title: updates.title ?? existing.title,
+    overlay: updates.overlay ?? existing.overlay,
+    caption: updates.caption ?? existing.caption,
+    tags: updates.tags ?? existing.tags,
+    notes: updates.notes ?? existing.notes,
+  };
+
+  await saveEntry(updated);
+  return updated;
 }

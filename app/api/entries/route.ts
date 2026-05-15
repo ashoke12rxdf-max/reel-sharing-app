@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getEntries, saveEntries, type EntryData } from '@/lib/storage';
+import { getEntries, saveEntry, type EntryData } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -15,7 +15,7 @@ export async function GET() {
   }
 }
 
-// POST — save a new entry's metadata (called by client after file upload succeeds)
+// POST — save a new entry
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -40,9 +40,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing mediaUrl' }, { status: 400 });
     }
 
-    const entries = await getEntries();
-    entries.unshift(entry);
-    await saveEntries(entries);
+    // Save as individual blob — no shared index to corrupt
+    await saveEntry(entry);
 
     return NextResponse.json({ success: true, entry });
   } catch (error: any) {
