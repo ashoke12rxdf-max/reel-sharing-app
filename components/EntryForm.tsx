@@ -195,7 +195,7 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
 
             <div className="form-row">
               <label className="form-label">Title</label>
-              <input className="form-input" placeholder="Entry title" required value={formData.title} onChange={e => set('title', e.target.value)} />
+              <input className="form-input" placeholder="Entry title" value={formData.title} onChange={e => set('title', e.target.value)} />
             </div>
             <div className="form-row">
               <label className="form-label">Overlay</label>
@@ -203,7 +203,7 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
             </div>
             <div className="form-row">
               <label className="form-label">Caption</label>
-              <textarea className="form-input" placeholder="Caption text..." required value={formData.caption} onChange={e => set('caption', e.target.value)} />
+              <textarea className="form-input" placeholder="Caption text..." value={formData.caption} onChange={e => set('caption', e.target.value)} />
             </div>
             <div className="form-grid">
               <div className="form-row">
