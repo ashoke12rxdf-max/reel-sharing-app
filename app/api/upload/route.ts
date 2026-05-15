@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
             mediaUrl: blob.url,
             mediaBlobPath: blob.pathname,
             fileName: blob.pathname.split('/').pop() || 'file',
-            fileSize: blob.size,
+            fileSize: 0,
             isCleaned: true,
             createdAt: new Date().toISOString(),
           };
