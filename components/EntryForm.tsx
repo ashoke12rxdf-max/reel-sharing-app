@@ -199,11 +199,15 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
             </div>
             <div className="form-row">
               <label className="form-label">Overlay</label>
-              <textarea className="form-input" placeholder="Overlay text..." value={formData.overlay} onChange={e => set('overlay', e.target.value)} />
+              <textarea className="form-input auto-grow" placeholder="Overlay text..." value={formData.overlay} rows={2}
+                onInput={e => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
+                onChange={e => set('overlay', e.target.value)} />
             </div>
             <div className="form-row">
               <label className="form-label">Caption</label>
-              <textarea className="form-input" placeholder="Caption text..." value={formData.caption} onChange={e => set('caption', e.target.value)} />
+              <textarea className="form-input auto-grow" placeholder="Caption text..." value={formData.caption} rows={2}
+                onInput={e => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
+                onChange={e => set('caption', e.target.value)} />
             </div>
             <div className="form-grid">
               <div className="form-row">

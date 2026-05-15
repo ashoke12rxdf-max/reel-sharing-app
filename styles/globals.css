@@ -464,8 +464,9 @@ tr.editing-row {
   color: var(--text-tertiary);
 }
 textarea.form-input {
-  min-height: 72px;
-  resize: vertical;
+  min-height: 40px;
+  resize: none;
+  overflow: hidden;
   line-height: 1.5;
 }
 
