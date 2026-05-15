@@ -84,17 +84,13 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const pathname = `media/${Date.now()}-${safeName}`;
 
-      // Upload DIRECTLY from browser to Vercel Blob CDN
-      // This bypasses the serverless function — no size limit
+      // 1. Upload file directly from browser to Vercel Blob CDN
       const blob = await upload(pathname, scrubResult.blob, {
         access: 'public',
         handleUploadUrl: '/api/upload',
-        clientPayload: JSON.stringify(formData),
       });
 
-      // The onUploadCompleted callback on the server saves the entry to the index.
-      // But it's async and may not be done yet. So we also refetch after a short delay.
-      // For instant UI, we add optimistically:
+      // 2. Build entry metadata
       const entry = {
         id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
         ...formData,
@@ -106,6 +102,18 @@ export default function EntryForm({ onSuccess }: EntryFormProps) {
         isCleaned: true,
         createdAt: new Date().toISOString(),
       };
+
+      // 3. Save metadata to index — this is the reliable step
+      const saveRes = await fetch('/api/entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry),
+      });
+
+      if (!saveRes.ok) {
+        const err = await saveRes.json();
+        throw new Error(err.error || 'Failed to save entry');
+      }
 
       onSuccess(entry);
       setIsOpen(false);
